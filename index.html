@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- 
+      Strict CSP:
+      - default-src: Only allow resources from the same origin.
+      - script-src: 'unsafe-inline' and 'unsafe-eval' are required temporarily for Vite dev mode. 
+                    (In production, these MUST be removed).
+      - connect-src: Allow connections to self, Vite HMR (ws:), and Solana Devnet APIs.
+      - worker-src: Allow Web Workers to be spawned from the same origin.
+    -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
+                   connect-src 'self' ws: wss: https://api.devnet.solana.com; 
+                   style-src 'self' 'unsafe-inline'; 
+                   img-src 'self' data:; 
+                   font-src 'self' data:; 
+                   worker-src 'self' blob:;">
+                   
+    <title>Secure Solana Wallet</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
