@@ -18,7 +18,7 @@ export const DashboardScreen = () => {
   const { solBalance, splBalance, isRefreshing, fetchBalances, connection } = useSolana(pubkey);
   
   // A standard SPL Devnet Token (e.g., USDC Devnet). You can replace this with your own Mint!
-  const TEST_SPL_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'; 
+  const TEST_SPL_MINT = '8wy77GbnLEnyHsyC33ukJVbTRuiXVxDSrwQbyrrnjLMk'; 
 
   const [copied, setCopied] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -54,7 +54,6 @@ export const DashboardScreen = () => {
 
   const handleLogout = async () => {
     await sendCommand('LOGOUT');
-    localStorage.removeItem('wallet_vault');
     localStorage.removeItem('wallet_pubkey');
     navigate('/');
   };
