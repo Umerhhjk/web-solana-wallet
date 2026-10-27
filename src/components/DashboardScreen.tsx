@@ -33,6 +33,9 @@ export const DashboardScreen = () => {
   const [sendError, setSendError] = useState('');
   const [txSignature, setTxSignature] = useState('');
 
+  // Solana Pay URI State
+  const [solanaPayUriInput, setSolanaPayUriInput] = useState('');
+
   // Re-authentication State
   const [showReauthModal, setShowReauthModal] = useState(false);
   const [reauthPassword, setReauthPassword] = useState('');
@@ -40,7 +43,7 @@ export const DashboardScreen = () => {
   useEffect(() => {
     if (!vault || !pubkey) {
       navigate('/setup');
-      return; // Return empty to satisfy TypeScript
+      return;
     }
     fetchBalances(TEST_SPL_MINT);
   }, [vault, pubkey, fetchBalances, navigate]);
@@ -56,6 +59,39 @@ export const DashboardScreen = () => {
     await sendCommand('LOGOUT');
     localStorage.removeItem('wallet_pubkey');
     navigate('/');
+  };
+
+  const handleParseSolanaPayUri = () => {
+    try {
+      setSendError('');
+      if (!solanaPayUriInput.startsWith('solana:')) {
+        throw new Error('Invalid Solana Pay URI format. Must start with "solana:"');
+      }
+
+      // Cleanly split address and query params
+      const [addressPart, queryString] = solanaPayUriInput.replace('solana:', '').split('?');
+      const recipient = addressPart.replace(/^\/+/, '');
+      const urlParams = new URLSearchParams(queryString);
+      
+      const amount = urlParams.get('amount');
+      const referenceKey = urlParams.get('reference');
+
+      if (!recipient || !amount) {
+        throw new Error('Missing required fields (recipient or amount) in Solana Pay URI.');
+      }
+
+      setRecipientAddress(recipient);
+      setSendAmount(amount);
+
+      if (referenceKey) {
+        sessionStorage.setItem('solana_pay_reference', referenceKey);
+      }
+
+      alert('Solana Pay URI parsed successfully! Recipient and amount populated.');
+      setSolanaPayUriInput('');
+    } catch (err: unknown) {
+      setSendError(err instanceof Error ? err.message : 'Failed to parse Solana Pay URI');
+    }
   };
 
   const executeTransaction = async (overridePassword?: string) => {
@@ -86,15 +122,28 @@ export const DashboardScreen = () => {
         transaction.add(createAssociatedTokenAccountInstruction(sender, recipientAta, recipient, mint));
       }
 
-      // 2. Fetch Mint Decimals Dynamically to ensure math is accurate
+      // 2. Fetch Mint Decimals Dynamically
       const mintInfo = await connection.getParsedAccountInfo(mint);
       if (!mintInfo.value || !('parsed' in mintInfo.value.data)) throw new Error('Invalid mint address');
       const decimals = mintInfo.value.data.parsed.info.decimals;
       
       // 3. Construct Transfer Instruction
       const amountToTransfer = Math.floor(parseFloat(sendAmount) * Math.pow(10, decimals));
-      transaction.add(createTransferInstruction(senderAta, recipientAta, sender, amountToTransfer));
+      const transferInstruction = createTransferInstruction(senderAta, recipientAta, sender, amountToTransfer);
       
+      // Attach Solana Pay Reference Key if present from URI import
+      const activeReferenceKey = sessionStorage.getItem('solana_pay_reference');
+      if (activeReferenceKey) {
+        transferInstruction.keys.push({
+          pubkey: new PublicKey(activeReferenceKey),
+          isSigner: false,
+          isWritable: false,
+        });
+        sessionStorage.removeItem('solana_pay_reference'); // Clear after use
+      }
+
+      transaction.add(transferInstruction);
+
       const { blockhash } = await connection.getLatestBlockhash('confirmed');
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = sender;
@@ -120,7 +169,6 @@ export const DashboardScreen = () => {
           setShowReauthModal(true);
           return;
         }
-        // Attach the original error as the cause
         throw new Error(errorMsg, { cause: err });
       }
     } catch (err: unknown) {
@@ -143,7 +191,7 @@ export const DashboardScreen = () => {
   };
 
   const closeExportModal = () => {
-    setExportedSecret(null); // CRITICAL: Wipe from state
+    setExportedSecret(null);
     setPassword('');
     setExportError('');
     setShowExportModal(false);
@@ -200,6 +248,27 @@ export const DashboardScreen = () => {
         </div>
       </div>
 
+      {/* Solana Pay URI Import Card */}
+      <div className="w-full bg-gray-800 p-6 rounded-xl border border-gray-700 mb-6">
+        <h2 className="text-xl font-bold mb-4 text-purple-400">Scan / Paste Solana Pay Link</h2>
+        <div className="flex gap-2">
+          <input 
+            type="text" 
+            placeholder="solana:MerchantAddress?amount=10&spl-token=...&reference=..." 
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 font-mono text-xs"
+            value={solanaPayUriInput}
+            onChange={(e) => setSolanaPayUriInput(e.target.value)}
+          />
+          <button 
+            type="button" 
+            onClick={handleParseSolanaPayUri}
+            className="bg-purple-600 hover:bg-purple-700 px-5 rounded-lg font-semibold text-sm transition"
+          >
+            Load
+          </button>
+        </div>
+      </div>
+
       {/* Send Token Form */}
       <div className="w-full bg-gray-800 p-6 rounded-xl border border-gray-700 mb-6">
         <h2 className="text-xl font-bold mb-6 flex items-center gap-2"><Send size={20}/> Send SPL Token</h2>
@@ -235,7 +304,7 @@ export const DashboardScreen = () => {
         </form>
       </div>
 
-      {/* Re-Auth Modal (Triggered on Session Timeout) */}
+      {/* Re-Auth Modal */}
       {showReauthModal && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 w-full max-w-md">

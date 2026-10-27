@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'r
 import { SetupScreen } from './components/SetupScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { useWalletWorker } from './hooks/useWalletWorker';
+import { ExternalPayScreen } from './components/ExternalPayScreen';
 
 const WelcomeScreen = () => {
   const navigate = useNavigate();
@@ -93,6 +94,7 @@ function App() {
           <Route path="/" element={<WelcomeScreen />} />
           <Route path="/setup" element={<SetupScreen />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
+          <Route path="/pay" element={<ExternalPayScreen />} />
         </Routes>
       </div>
     </Router>
